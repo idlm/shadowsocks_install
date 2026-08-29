@@ -7,9 +7,9 @@
 #   * Supports Debian 10/11/12/13 and Ubuntu 20.04/22.04/24.04 in one binary
 #   * Falls back to distro package -> upstream tarball when teddysun's PPA
 #     is missing for a release
-#   * Interactive: user picks port, password, cipher, plugin from menus
-#   * Optional non-interactive flags for pre-set values only (--port, --password,
-#     --cipher, --plugin) — user is still asked for anything not provided
+#   * Default: interactive — user picks port, password, cipher, plugin
+#   * Optional: --auto (or -y) skips every prompt, uses --port/--password
+#     when given and random values otherwise. Default cipher is aes-256-gcm.
 #   * Random password suggested (was: hardcoded "teddysun.com")
 #   * Detects apt/dnf package presence with apt_has_package, so a missing
 #     shadowsocks-libev package is reported clearly instead of a silent fail
@@ -32,7 +32,7 @@ shopt -s inherit_errexit 2>/dev/null || true
 SCRIPT_NAME=$(basename "$0")
 SCRIPT_VERSION='2.0.0-enhanced'
 SUPPORTED_TYPES=(libev rust)
-DEFAULT_CIPHER='chacha20-ietf-poly1305'
+DEFAULT_CIPHER='aes-256-gcm'
 
 # Distro package unit names (Debian 12+/Ubuntu 22.04+).
 readonly LIBEV_SERVICE='shadowsocks-libev.service'
@@ -59,6 +59,10 @@ die() { log_error "$*"; exit 1; }
 # Argument parsing
 #==============================================================================
 ACTION='install'
+# AUTO_YES: when set via --auto, skip all interactive prompts and use
+# defaults (random port if --port not given, random password, default
+# cipher, no plugin). Default mode is interactive.
+AUTO_YES=0
 SS_TYPE='libev'
 SS_PORT=''
 SS_PASSWORD=''
@@ -71,18 +75,21 @@ usage() {
     cat <<EOF
 Usage:
   sudo $SCRIPT_NAME                              # fully interactive install
-  sudo $SCRIPT_NAME install --type libev         # interactively asked for port / password / cipher
-  sudo $SCRIPT_NAME install --port 443           # pre-set port, still asked for password + cipher
-  sudo $SCRIPT_NAME install --type rust --plugin v2ray
+  sudo $SCRIPT_NAME install --type libev         # still asks for port / password / cipher
+  sudo $SCRIPT_NAME install --port 443           # still asks for type / password / cipher
+  sudo $SCRIPT_NAME install --auto               # no questions; random port + random password
+  sudo $SCRIPT_NAME install --port 443 --auto    # use 443 + random password
+  sudo $SCRIPT_NAME install --type rust --plugin v2ray --auto
   sudo $SCRIPT_NAME uninstall
 
 Options:
   install | uninstall        action (default: install)
-  --type TYPE                libev | rust       (default: libev, still asked)
-  --port PORT                1-65535            (asked if missing)
-  --password PASSWORD        auth password      (asked if missing; default: random)
-  --cipher CIPHER            stream cipher      (asked if missing; default: ${DEFAULT_CIPHER})
-  --plugin {none|v2ray|xray} SIP003 plugin      (asked if missing; rust only)
+  --type TYPE                libev | rust       (default: libev, still asked unless --auto)
+  --port PORT                1-65535            (asked if missing; random if --auto and no --port)
+  --password PASSWORD        auth password      (asked if missing; random if --auto and no --password)
+  --cipher CIPHER            stream cipher      (default: ${DEFAULT_CIPHER})
+  --plugin {none|v2ray|xray} SIP003 plugin      (default: none; rust only)
+  --auto, -y                 skip all prompts; fill in random values for anything not given
   -h, --help                 this help
 EOF
     exit 0
@@ -98,6 +105,7 @@ parse_args() {
             --password)  SS_PASSWORD="$2"; shift 2 ;;
             --cipher)    SS_CIPHER="$2"; shift 2 ;;
             --plugin)    SS_PLUGIN="$2"; shift 2 ;;
+            --auto|-y)   AUTO_YES=1; shift ;;
             -h|--help)   usage ;;
             *)           die "Unknown argument: $1 (try --help)" ;;
         esac
@@ -271,25 +279,26 @@ pre-set every value with --port, --password, --cipher (and --type,
     done
 
     # --- cipher ---
+    # Strong AEAD ciphers are listed first; weaker ones (CTR, CFB, etc.)
+    # are kept at the bottom for compatibility.
     if [ "$SS_TYPE" = "rust" ]; then
-        # rust supports AEAD-2022 ciphers; show the union.
         local ciphers=(
-            "chacha20-ietf-poly1305"   # 1
-            "aes-256-gcm"              # 2
-            "aes-128-gcm"              # 3
-            "xchacha20-ietf-poly1305"  # 4
-            "2022-blake3-aes-256-gcm"  # 5
-            "2022-blake3-aes-128-gcm"  # 6
-            "2022-blake3-chacha20-poly1305"  # 7
+            "aes-256-gcm"                       # 1  recommended
+            "aes-128-gcm"                       # 2
+            "chacha20-ietf-poly1305"            # 3
+            "xchacha20-ietf-poly1305"            # 4
+            "2022-blake3-aes-256-gcm"           # 5  (AEAD-2022)
+            "2022-blake3-aes-128-gcm"           # 6
+            "2022-blake3-chacha20-poly1305"     # 7
         )
     else
         local ciphers=(
-            "chacha20-ietf-poly1305"   # 1
-            "aes-256-gcm"              # 2
-            "aes-128-gcm"              # 3
-            "xchacha20-ietf-poly1305"  # 4
-            "chacha20-ietf"            # 5
-            "aes-256-ctr"              # 6
+            "aes-256-gcm"                       # 1  recommended
+            "aes-128-gcm"                       # 2
+            "chacha20-ietf-poly1305"            # 3
+            "xchacha20-ietf-poly1305"            # 4
+            "chacha20-ietf"                     # 5
+            "aes-256-ctr"                       # 6
         )
     fi
     echo "Stream cipher (current: ${SS_CIPHER:-${ciphers[0]}}):"
@@ -791,12 +800,27 @@ do_install() {
         SS_PLUGIN='none'
     fi
 
-    # Always go through the interactive prompt. The user is asked about
-    # every value, even ones passed on the CLI — they can press Enter
-    # to accept the pre-set value or type a new one. When invoked via
-    # `curl | bash` (no TTY), interactive_ask will die with a clear
-    # error message pointing the user at the CLI flags.
-    interactive_ask
+    # Two ways to run:
+    #   (a) default / interactive — ask the user about every value
+    #   (b) --auto                — fill in random port + random password,
+    #                               use the default cipher, no plugin.
+    # --auto does NOT override CLI values; if the user passed --port 443
+    # we keep 443, only the fields they didn't specify get defaults.
+    #
+    # When running from a pipe (no TTY) we force auto mode, otherwise
+    # the interactive prompt would block waiting for input that never
+    # comes. The user can still pre-set values via the CLI flags.
+    if [ ! -t 0 ] && [ "$AUTO_YES" = "0" ]; then
+        log_warn "No TTY detected (running from pipe); switching to auto mode"
+        AUTO_YES=1
+    fi
+    if [ "$AUTO_YES" = "1" ]; then
+        SS_PORT="${SS_PORT:-$(gen_port)}"
+        SS_PASSWORD="${SS_PASSWORD:-$(gen_password)}"
+        log_info "Auto mode: using defaults (port=${SS_PORT}, cipher=${SS_CIPHER}, plugin=${SS_PLUGIN})"
+    else
+        interactive_ask
+    fi
 
     [ "${#SS_PASSWORD}" -ge 6 ] || die "Password must be at least 6 characters"
 
@@ -827,24 +851,50 @@ do_uninstall() {
     local pm; pm=$(detect_pkg_manager)
     case "$SS_TYPE" in
         libev)
-            if [ "$pm" = "apt" ] && apt_has_package shadowsocks-libev; then
-                DEBIAN_FRONTEND=noninteractive apt-get -y remove \
-                    shadowsocks-libev v2ray-plugin xray-plugin
+            if [ "$pm" = "apt" ]; then
+                # Only try to remove packages that are actually installed.
+                local pkgs=""
+                apt_has_package shadowsocks-libev && pkgs="shadowsocks-libev$pkgs"
+                dpkg -l v2ray-plugin 2>/dev/null | grep -q '^ii' && pkgs="$pkgs v2ray-plugin"
+                dpkg -l xray-plugin  2>/dev/null | grep -q '^ii' && pkgs="$pkgs xray-plugin"
+                if [ -n "$pkgs" ]; then
+                    DEBIAN_FRONTEND=noninteractive apt-get -y remove $pkgs
+                fi
             else
                 rm -f /usr/local/bin/ss-server /usr/local/bin/ss-local \
                       /usr/local/bin/ss-tunnel /usr/local/bin/ss-redir \
                       /usr/local/bin/ss-manager
             fi
+            # Always remove the systemd unit, config and logs.
+            if has_systemd; then
+                rm -f "${SYSTEMD_DIR}/shadowsocks-libev.service"
+                rm -rf "${SYSTEMD_DIR}/shadowsocks-libev.service.d" 2>/dev/null
+                systemctl daemon-reload
+            fi
             rm -f "${CONFIG_DIR}/config.json"
+            rm -rf "$CONFIG_DIR"
+            rm -f /var/log/shadowsocks-libev.log
             ;;
         rust)
-            if [ "$pm" = "apt" ] && apt_has_package shadowsocks-rust; then
-                DEBIAN_FRONTEND=noninteractive apt-get -y remove \
-                    shadowsocks-rust v2ray-plugin xray-plugin
+            if [ "$pm" = "apt" ]; then
+                local pkgs=""
+                apt_has_package shadowsocks-rust && pkgs="shadowsocks-rust$pkgs"
+                dpkg -l v2ray-plugin 2>/dev/null | grep -q '^ii' && pkgs="$pkgs v2ray-plugin"
+                dpkg -l xray-plugin  2>/dev/null | grep -q '^ii' && pkgs="$pkgs xray-plugin"
+                if [ -n "$pkgs" ]; then
+                    DEBIAN_FRONTEND=noninteractive apt-get -y remove $pkgs
+                fi
             else
                 rm -f /usr/local/bin/ssserver /usr/local/bin/sslocal
             fi
+            if has_systemd; then
+                rm -f "${SYSTEMD_DIR}/shadowsocks-rust.service"
+                rm -rf "${SYSTEMD_DIR}/shadowsocks-rust.service.d" 2>/dev/null
+                systemctl daemon-reload
+            fi
             rm -f "${CONFIG_DIR}/shadowsocks-rust-config.json"
+            rm -rf "$CONFIG_DIR"
+            rm -f /var/log/shadowsocks-rust.log
             ;;
     esac
     log_info "Done."

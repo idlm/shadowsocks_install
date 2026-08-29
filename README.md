@@ -61,7 +61,7 @@ shadowsocks_install/
 │   ├── shadowsocks-all-enhanced.sh        主脚本（libev+rust，766 行）
 │   └── CHANGELOG.md                       12 个改进点
 │
-├── fmmx-enhanced/                         (四合一，但 Python/SSR 已 EOL)
+├── fmmx-enhanced/                         (4-in-1：Python/R/Go/libev；Python/SSR 不可用)
 │   ├── README.md
 │   ├── install.sh                         一行安装入口
 │   └── shadowsocks-libev-enhance.sh       主脚本（Python/R/Go/libev，1548 行）
@@ -79,17 +79,46 @@ shadowsocks_install/
 
 ## 已验证兼容的发行版
 
-| 发行版              | libev (idlm) | rust (idlm) | python (fmmx) | Go (fmmx) |
-|---------------------|:------------:|:-----------:|:-------------:|:---------:|
-| Debian 10 (buster)  | ✅ 源码      | ✅ 二进制   | ⚠️ EOL        | ✅ 二进制 |
-| Debian 11 (bullseye)| ✅ apt       | ✅ 二进制   | ⚠️ EOL        | ✅ 二进制 |
-| Debian 12 (bookworm)| ✅ apt       | ✅ apt      | ⚠️ EOL        | ✅ apt    |
-| Debian 13 (trixie)  | ✅ apt       | ✅ apt      | ⚠️ EOL        | ✅ apt    |
-| Ubuntu 20.04        | ✅ apt       | ✅ 二进制   | ⚠️ EOL        | ✅ apt    |
-| Ubuntu 22.04        | ✅ apt       | ✅ apt      | ⚠️ EOL        | ✅ apt    |
-| Ubuntu 24.04        | ✅ apt       | ✅ apt      | ⚠️ EOL        | ✅ apt    |
-| CentOS 8 / RHEL 8   | ✅ dnf       | ✅ dnf      | ⚠️ EOL        | ✅ dnf    |
-| CentOS 9 / RHEL 9   | ✅ dnf       | ✅ dnf      | ⚠️ EOL        | ✅ dnf    |
+| 发行版              | libev (idlm)    | rust (idlm)     | python (fmmx)           | Go (fmmx)     |
+|---------------------|:---------------:|:---------------:|:-----------------------:|:-------------:|
+| Debian 10 (buster)  | ✅ 源码         | ✅ 二进制        | ❌ 不可用（见下）       | ✅ 二进制     |
+| Debian 11 (bullseye)| ✅ apt          | ✅ 二进制        | ❌ 不可用（见下）       | ✅ 二进制     |
+| Debian 12 (bookworm)| ✅ apt          | ✅ apt           | ❌ 不可用（见下）       | ✅ apt        |
+| Debian 13 (trixie)  | ✅ apt          | ✅ apt           | ❌ 不可用（见下）       | ✅ apt        |
+| Ubuntu 20.04        | ✅ apt          | ✅ 二进制        | ❌ 不可用（见下）       | ✅ apt        |
+| Ubuntu 22.04        | ✅ apt          | ✅ apt           | ❌ 不可用（见下）       | ✅ apt        |
+| Ubuntu 24.04        | ✅ apt          | ✅ apt           | ❌ 不可用（见下）       | ✅ apt        |
+| CentOS 8 / RHEL 8   | ✅ dnf          | ✅ dnf           | ❌ 不可用（见下）       | ✅ dnf        |
+| CentOS 9 / RHEL 9   | ✅ dnf          | ✅ dnf           | ❌ 不可用（见下）       | ✅ dnf        |
+
+### 图例
+
+| 标记         | 含义                                                       |
+|--------------|------------------------------------------------------------|
+| ✅ 源码      | 发行版无包，脚本自动源码编译                               |
+| ✅ apt       | 发行版官方包可用                                           |
+| ✅ dnf       | CentOS/RHEL 官方包可用                                     |
+| ✅ 二进制    | 脚本从 GitHub release 拉预编译二进制                       |
+| ❌ 不可用    | 即使脚本能装，服务也启不来（依赖不存在或原作者已废弃）     |
+
+### 为什么 Python 版不可用
+
+**Shadowsocks-Python** 在 2017 年被原作者
+[clowwindy](https://github.com/clowwindy) archived，仓库已不再维护。具体问题：
+
+1. **OpenSSL 1.1.1+ 不兼容**：代码硬编码找 `libcrypto.a`（OpenSSL 1.0.x 时代的静态库名）
+   * Debian 11 的 `libssl-dev` 不再提供 `libcrypto.a`
+   * 启动时 ssserver 会抛 `FileNotFoundError: b'liblibcrypto.a'`
+2. **Python 3.12+ 语法错误**：`is ""` / `is not 0` 写法在 3.12+ 报 SyntaxError
+3. **没有 IPv6 server 数组支持**：`server: [array]` 写法在 3.0.0 也不支持
+
+→ **建议改用 libev 或 rust 版**，协议完全兼容。
+
+### 关于 Go 版
+
+**Shadowsocks-Go** 仍是活跃项目，
+[database64128/shadowsocks-go](https://github.com/database64128/shadowsocks-go) 有新维护分支。
+原 teddysun 仓库里的 `shadowsocks-go` 是 1.2.2 版本（2015），功能上够用但不推荐新部署。
 
 ## 主要特性（idlm 增强版）
 

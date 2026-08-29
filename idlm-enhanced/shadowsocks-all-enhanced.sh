@@ -231,10 +231,16 @@ trap 'rm -rf "$WORKDIR"' EXIT
 #     will die with a clear "need --port/--password/--cipher pre-set"
 #     error message instead of silently using defaults.
 interactive_ask() {
-    if [ ! -t 0 ]; then
-        die "Interactive mode requires a TTY. When piping (curl | bash),
-pre-set every value with --port, --password, --cipher (and --type,
---plugin as needed). See --help for the full list."
+    # Force non-interactive fallback when stdin is not a real terminal,
+    # OR when running under sudo with requiretty where /dev/tty exists
+    # but our stdin is still a pipe from curl.
+    if [ ! -t 0 ] || [ ! -r /dev/tty ] 2>/dev/null; then
+        log_warn "Interactive mode requires a TTY; falling back to auto mode."
+        log_warn "Re-run with --auto or pre-set --port/--password/--cipher to silence this."
+        AUTO_YES=1
+        SS_PORT="${SS_PORT:-$(gen_port)}"
+        SS_PASSWORD="${SS_PASSWORD:-$(gen_password)}"
+        return 0
     fi
 
     local def
@@ -806,20 +812,12 @@ do_install() {
     #                               use the default cipher, no plugin.
     # --auto does NOT override CLI values; if the user passed --port 443
     # we keep 443, only the fields they didn't specify get defaults.
-    #
-    # When running from a pipe (no TTY) we force auto mode, otherwise
-    # the interactive prompt would block waiting for input that never
-    # comes. The user can still pre-set values via the CLI flags.
-    if [ ! -t 0 ] && [ "$AUTO_YES" = "0" ]; then
-        log_warn "No TTY detected (running from pipe); switching to auto mode"
-        AUTO_YES=1
-    fi
     if [ "$AUTO_YES" = "1" ]; then
         SS_PORT="${SS_PORT:-$(gen_port)}"
         SS_PASSWORD="${SS_PASSWORD:-$(gen_password)}"
         log_info "Auto mode: using defaults (port=${SS_PORT}, cipher=${SS_CIPHER}, plugin=${SS_PLUGIN})"
     else
-        interactive_ask
+        interactive_ask   # auto-degrades to AUTO_YES if no TTY
     fi
 
     [ "${#SS_PASSWORD}" -ge 6 ] || die "Password must be at least 6 characters"

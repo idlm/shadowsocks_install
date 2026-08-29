@@ -159,16 +159,27 @@ sends progress to stderr so `script.sh 2>progress.log` is possible, and
 only the final QR code goes to stdout. The colors are also disabled
 when stdout is not a TTY (so `cat install.log` is clean).
 
-### 1.9 Default mode is interactive
+### 1.9 Default mode is interactive; `--auto` skips everything
 
-Removed the `--auto` flag entirely. The user is always asked for type,
-port, password, cipher and (for rust) plugin, even if a value was passed
-on the command line — the value is shown in brackets and the user can
-press Enter to accept it or type a new one. To run non-interactively
-(e.g. from `curl | bash`), pre-set every value with --port/--password/
---cipher. The script refuses to start with a clear error if invoked
-without a TTY and without those values, instead of silently picking
-random defaults.### 1.10 Firewall
+Default mode asks the user for type, port, password, cipher and (for
+rust) plugin, even if a value was passed on the command line — the
+value is shown in brackets and the user can press Enter to accept it
+or type a new one.
+
+To run non-interactively (e.g. from `curl | bash` or in cloud-init),
+append `--auto` (or `-y`) at the end of the command. In auto mode:
+
+* any value not provided on the command line gets a default
+  (random port in 1024-65535, random 24-char password, no plugin);
+* the default cipher is **`aes-256-gcm`** (was chacha20-ietf-poly1305);
+* the script does not ask any question.
+
+When invoked from a pipe (`curl | bash`, no TTY) without `--auto`,
+the script auto-promotes to auto mode and prints a single warning,
+instead of blocking on input that never comes. Strong AEAD ciphers
+(AES-256-GCM, AES-128-GCM, chacha20-ietf-poly1305, xchacha20-ietf-
+poly1305) are listed first in the menu; weaker ciphers (CTR, CFB,
+stream ciphers) are kept at the bottom for compatibility.
 
 Upstream handled `firewalld` and `ufw` separately. Enhanced
 consolidated both into a single `config_firewall` that detects which is

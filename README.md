@@ -15,17 +15,26 @@
 curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash
 ```
 
-或者预填部分参数（**仍会问未指定的项**）：
+或者预填部分参数（**未指定的项会交互询问**）：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --type libev --port 443
 ```
 
-只有 `curl | bash`（无 TTY）才需要预填所有项：
+跳过所有交互（**加 `--auto` 即可**，推荐）：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --type libev --port 443 --password 'MyP@ss' --cipher chacha20-ietf-poly1305
+# 随机端口 + 随机密码 + 默认 aes-256-gcm
+curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --auto
+
+# 指定端口 + 随机密码
+curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --port 443 --auto
+
+# 完全自定义
+curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --type libev --port 443 --password 'MyP@ss' --cipher chacha20-ietf-poly1305 --auto
 ```
+
+`curl | bash`（无 TTY）场景下脚本会自动启用 auto 模式，但你仍然可以预填任意参数。
 
 ### 2. Fmmx 增强版（4-in-1，Python/R/Go/libev）
 
@@ -133,7 +142,7 @@ shadowsocks_install/
 * **源码兜底**：最后才编译源码，避免耗时 build
 * **systemd 单元自带**：脚本生成的 unit 不带 `DynamicUser`，
   规避 Debian 11 / 12 上的 "Invalid config path" bug
-* **默认交互**：端口/密码/加密方式/插件都会问；可预填 `--port/--password/--cipher/--plugin` 跳过相应问题；`curl | bash` 场景下需要预填所有项
+* **默认交互**：端口/密码/加密方式/插件都会问；可预填 `--port/--password/--cipher/--plugin` 跳过相应问题；加 `--auto` 跳过**所有**问题（默认 aes-256-gcm）
 * **随机密码**：默认 `openssl rand` 生成 24 字符
 * **自动适配容器/受限环境**：探测 `setgroups` 权限，失败时不降权到 nobody
 

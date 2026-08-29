@@ -17,7 +17,7 @@ Current version: **2.0.0-enhanced**
 | # | Issue in upstream | Fix in enhanced | Lines |
 |---|---|---|---|
 | 1 | Hardcoded password `teddysun.com` | `openssl rand` -> 24 chars | ~270 |
-| 2 | Only `read -p`; blocks in CI | Full `--port/--password/--cipher/--auto` parsing | ~60-100 |
+| 2 | Only `read -p`; blocks in CI | Full `--port/--password/--cipher/--plugin` parsing | ~60-100 |
 | 3 | `apt-get install` silent on miss | `apt_has_package` pre-check | ~165 / ~290 / ~430 |
 | 4 | Service name `shadowsocks-libev-server` only works on the teddysun PPA | `service_unit_name()` picks per type, reuses distro unit | ~525-560 |
 | 5 | No `systemctl is-enabled` check, so missing unit looks like install failure | Pre-check distro unit file, fail early | ~533-547 |
@@ -47,7 +47,7 @@ argument and read every other setting interactively. Enhanced adds:
 ```text
 --type      libev | rust
 --port      1-65535
---password  text      (random if omitted in --auto mode)
+--password  text      (random if not given via --password)
 --cipher    chacha20-ietf-poly1305 | aes-256-gcm | ...
 --plugin    none | v2ray | xray
 --auto, -y  non-interactive
@@ -154,23 +154,16 @@ sends progress to stderr so `script.sh 2>progress.log` is possible, and
 only the final QR code goes to stdout. The colors are also disabled
 when stdout is not a TTY (so `cat install.log` is clean).
 
-### 1.9 `--auto` / non-interactive mode
+### 1.9 Default mode is interactive
 
-A short-circuit for cloud-init / CI usage. All interactive `read -p`
-calls are wrapped in:
-
-```bash
-interactive_ask() {
-    [ "$AUTO_YES" = "1" ] && return 0
-    [ -t 0 ] || return 0
-    ...
-}
-```
-
-So in `--auto` mode (or in a non-TTY environment) the script picks
-random port + random password and proceeds without blocking.
-
-### 1.10 Firewall
+Removed the `--auto` flag entirely. The user is always asked for type,
+port, password, cipher and (for rust) plugin, even if a value was passed
+on the command line — the value is shown in brackets and the user can
+press Enter to accept it or type a new one. To run non-interactively
+(e.g. from `curl | bash`), pre-set every value with --port/--password/
+--cipher. The script refuses to start with a clear error if invoked
+without a TTY and without those values, instead of silently picking
+random defaults.### 1.10 Firewall
 
 Upstream handled `firewalld` and `ufw` separately. Enhanced
 consolidated both into a single `config_firewall` that detects which is

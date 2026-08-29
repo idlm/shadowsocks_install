@@ -5,23 +5,31 @@
 > 保留 **Shadowsocks-libev** 和 **Shadowsocks-rust**，
 > 并对 Debian 10/11/12/13、Ubuntu 20.04/22.04/24.04 全系做了兼容性加固。
 
-## 一行安装
+## 一行安装（**默认交互**：会问端口、密码、加密方式）
 
 ```bash
-# 交互式安装
 curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash
+```
 
-# 非交互式：装 libev，自动随机端口 + 随机密码
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
-  | sudo bash -s -- --type libev --auto
+预填部分参数（**未指定的项会交互询问**）：
 
-# 非交互式：装 libev，指定端口 443
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
-  | sudo bash -s -- --type libev --port 443 --auto
+```bash
+# 只指定 type，端口/密码/加密方式会被问到
+curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --type libev
 
-# 非交互式：装 rust + v2ray 插件
+# 指定 type + 端口
+curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --type libev --port 443
+
+# 装 rust + v2ray 插件
+curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --type rust --plugin v2ray
+```
+
+**在 `curl | bash` 场景下（无 TTY）必须预填所有需要的项**：
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
-  | sudo bash -s -- --type rust --plugin v2ray --auto
+  | sudo bash -s -- --type libev --port 443 --password 'MyP@ss' \
+                    --cipher chacha20-ietf-poly1305
 ```
 
 或者直接 clone 后运行：
@@ -29,64 +37,38 @@ curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-
 ```bash
 git clone https://github.com/idlm/shadowsocks_install.git
 cd shadowsocks_install/idlm-enhanced
-sudo bash shadowsocks-all-enhanced.sh install --type libev --port 443 --auto
+sudo bash shadowsocks-all-enhanced.sh
 ```
 
-## 一行安装：默认全自动
+## 交互流程
 
-`--auto` 模式**不交互、不问问题**：
+启动后会依次询问：
 
-| 选项 | `--auto` 默认 |
-|------|---------------|
-| `--type` | `libev` |
-| `--port` | 随机 1024-65535 |
-| `--password` | 随机 24 字符 |
-| `--cipher` | `chacha20-ietf-poly1305` |
-| `--plugin` | 无 |
+1. **Type**：libev 或 rust（默认 libev）
+2. **Port**：1-65535（默认随机）
+3. **Password**：是否生成随机密码（推荐 Y），或自己输入
+4. **Cipher**：列出可用加密方式，让用户选一个
+5. **Plugin**（仅 rust）：none / v2ray-plugin / xray-plugin
+6. **确认**最终配置
 
-**最简单的一行**（`curl` + 随机一切）：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --auto
-```
-
-**指定端口**（避免防火墙要重新开）：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --port 443 --auto
-```
-
-**指定密码**（自用客户端记得住）：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --port 443 --password 'MyP@ss' --auto
-```
-
-**完全自定义**：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
-  | sudo bash -s -- --type libev --port 443 --password 'MyP@ss' \
-                    --cipher chacha20-ietf-poly1305 --auto
-```
+每个问题输入对应数字或直接回车接受默认。
 
 ## 用法
 
 ```text
 Usage:
-  sudo shadowsocks-all-enhanced.sh                              # 交互式
-  sudo shadowsocks-all-enhanced.sh install --type libev --port 443 --auto
-  sudo shadowsocks-all-enhanced.sh install --type rust --plugin v2ray --auto
+  sudo shadowsocks-all-enhanced.sh                              # fully interactive
+  sudo shadowsocks-all-enhanced.sh install --type libev         # still asks for port / password / cipher
+  sudo shadowsocks-all-enhanced.sh install --port 443           # still asks for type / password / cipher
   sudo shadowsocks-all-enhanced.sh uninstall
 
 Options:
   install | uninstall        action (default: install)
-  --type TYPE                libev | rust       (default: libev)
-  --port PORT                1-65535
-  --password PASSWORD        auth password      (random if omitted)
-  --cipher CIPHER            stream cipher      (default: chacha20-ietf-poly1305)
-  --plugin {none|v2ray|xray} SIP003 plugin      (rust only)
-  --auto, -y                 non-interactive, accept all defaults
+  --type TYPE                libev | rust       (default: libev, still asked)
+  --port PORT                1-65535            (asked if missing)
+  --password PASSWORD        auth password      (asked if missing; default: random)
+  --cipher CIPHER            stream cipher      (asked if missing; default: chacha20-ietf-poly1305)
+  --plugin {none|v2ray|xray} SIP003 plugin      (asked if missing; rust only)
   -h, --help                 this help
 ```
 
@@ -121,7 +103,7 @@ Options:
 1. **去掉了 Shadowsocks-Python / ShadowsocksR**：这俩早已 archived，会装出不可用的服务
 2. **apt 探测**：装包前用 `apt-cache show` 检查包是否存在，缺包时清晰报错而不是静默失败
 3. **GitHub release 兜底**：apt/dnf 没包时，从 GitHub 拉最新 release tarball/二进制
-4. **非交互模式**：完整 `--port/--password/--cipher/--plugin/--auto` 参数，CI / cloud-init 可用
+4. **默认交互**：端口/密码/加密方式/插件都会问，避免误选；可预填 `--port/--password/--cipher/--plugin` 跳过相应问题；`curl | bash` 场景下需要预填所有项
 5. **随机密码**：默认用 `openssl rand` 生成 24 字符（原版硬编码 `teddysun.com`）
 6. **systemd 单元探测**：区分发行版默认 unit 和自写 unit，Debian 12/13 行为不再有"Invalid config path"那种诡异错
 7. **不写多余 `user` 字段**：探测容器/受限环境跑 root，避开 setgroups 失败

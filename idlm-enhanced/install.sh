@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
 # One-line installer for Shadowsocks (idlm-enhanced, libev+rust)
 #
-# Usage:
-#   curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash
-#   curl -fsSL ... | sudo bash -s -- --type libev --port 443 --auto
+# By default the main script is **interactive**: it will ask the user for
+# port, password, cipher and plugin. You can pre-set some of these on
+# the command line (see shadowsocks-all-enhanced.sh --help).
 #
-# This script downloads shadowsocks-all-enhanced.sh and runs it.
+# When invoked via `curl | bash` (no TTY) you MUST pre-set every value
+# or the script will refuse to run.
+#
+# Usage:
+#   # Interactive (TTY required):
+#   curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash
+#
+#   # Pre-set everything (works without TTY):
+#   curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
+#     | sudo bash -s -- --type libev --port 443 --password 'MyP@ss' --cipher chacha20-ietf-poly1305
+#
 # You can also just `bash shadowsocks-all-enhanced.sh` directly after clone.
 set -e
 

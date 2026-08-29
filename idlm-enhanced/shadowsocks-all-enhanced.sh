@@ -7,9 +7,10 @@
 #   * Supports Debian 10/11/12/13 and Ubuntu 20.04/22.04/24.04 in one binary
 #   * Falls back to distro package -> upstream tarball when teddysun's PPA
 #     is missing for a release
-#   * Non-interactive flags for CI / cloud-init: --auto, --port, --password,
-#     --cipher, --plugin
-#   * Random password by default (was: hardcoded "teddysun.com")
+#   * Interactive: user picks port, password, cipher, plugin from menus
+#   * Optional non-interactive flags for pre-set values only (--port, --password,
+#     --cipher, --plugin) — user is still asked for anything not provided
+#   * Random password suggested (was: hardcoded "teddysun.com")
 #   * Detects apt/dnf package presence with apt_has_package, so a missing
 #     shadowsocks-libev package is reported clearly instead of a silent fail
 #   * systemd unit name picked per distro, no more wrong service name on
@@ -58,7 +59,6 @@ die() { log_error "$*"; exit 1; }
 # Argument parsing
 #==============================================================================
 ACTION='install'
-AUTO_YES=0
 SS_TYPE='libev'
 SS_PORT=''
 SS_PASSWORD=''
@@ -70,19 +70,19 @@ usage() {
     sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
     cat <<EOF
 Usage:
-  sudo $SCRIPT_NAME                              # interactive install
-  sudo $SCRIPT_NAME install --type libev --port 443 --auto
-  sudo $SCRIPT_NAME install --type rust --plugin v2ray --auto
+  sudo $SCRIPT_NAME                              # fully interactive install
+  sudo $SCRIPT_NAME install --type libev         # interactively asked for port / password / cipher
+  sudo $SCRIPT_NAME install --port 443           # pre-set port, still asked for password + cipher
+  sudo $SCRIPT_NAME install --type rust --plugin v2ray
   sudo $SCRIPT_NAME uninstall
 
 Options:
   install | uninstall        action (default: install)
-  --type TYPE                libev | rust       (default: libev)
-  --port PORT                1-65535
-  --password PASSWORD        auth password      (random if omitted)
-  --cipher CIPHER            stream cipher      (default: ${DEFAULT_CIPHER})
-  --plugin {none|v2ray|xray} SIP003 plugin      (rust only)
-  --auto, -y                 non-interactive, accept all defaults
+  --type TYPE                libev | rust       (default: libev, still asked)
+  --port PORT                1-65535            (asked if missing)
+  --password PASSWORD        auth password      (asked if missing; default: random)
+  --cipher CIPHER            stream cipher      (asked if missing; default: ${DEFAULT_CIPHER})
+  --plugin {none|v2ray|xray} SIP003 plugin      (asked if missing; rust only)
   -h, --help                 this help
 EOF
     exit 0
@@ -98,7 +98,6 @@ parse_args() {
             --password)  SS_PASSWORD="$2"; shift 2 ;;
             --cipher)    SS_CIPHER="$2"; shift 2 ;;
             --plugin)    SS_PLUGIN="$2"; shift 2 ;;
-            --auto|-y)   AUTO_YES=1; shift ;;
             -h|--help)   usage ;;
             *)           die "Unknown argument: $1 (try --help)" ;;
         esac
@@ -213,52 +212,139 @@ WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
 
 #==============================================================================
-# 1. Interactive prompts (TTY-only, only when --auto is NOT set)
+# 1. Interactive prompts — ask for every setting the user did not provide.
 #==============================================================================
-# We DO NOT ask for anything in --auto mode. The defaults set in do_install
-# (random password, random port, chacha20-ietf-poly1305 cipher, no plugin)
-# are good enough for a one-click install.
-#
-# In TTY + non-auto mode we offer to customise. In pipe (curl|bash) mode
-# we MUST exit silently so the script never blocks waiting for input.
+# Behaviour:
+#   * Each ask shows the *current* (CLI or default) value in brackets.
+#     Pressing Enter accepts; the user can also type a new value.
+#   * The user is always asked, even for values that came from --port /
+#     --password / --cipher, so they can confirm or change.
+#   * This function REQUIRES a TTY. If you call it from `curl | bash` it
+#     will die with a clear "need --port/--password/--cipher pre-set"
+#     error message instead of silently using defaults.
 interactive_ask() {
-    [ "$AUTO_YES" = "1" ] && return 0
-    [ -t 0 ] || return 0
+    if [ ! -t 0 ]; then
+        die "Interactive mode requires a TTY. When piping (curl | bash),
+pre-set every value with --port, --password, --cipher (and --type,
+--plugin as needed). See --help for the full list."
+    fi
 
     local def
-    if [ -z "$SS_PORT" ]; then
-        def=$(gen_port)
+
+    # --- type ---
+    echo "Which Shadowsocks implementation?"
+    echo "  1) libev (recommended)"
+    echo "  2) rust"
+    read -r -p "Choice [1]: " REPLY
+    case "${REPLY:-1}" in
+        2) SS_TYPE='rust'  ;;
+        *) SS_TYPE='libev' ;;
+    esac
+
+    # --- port ---
+    if [ -z "$SS_PORT" ]; then def=$(gen_port); else def="$SS_PORT"; fi
+    while :; do
         read -r -p "Server port [1-65535] (default: $def): " REPLY
         SS_PORT="${REPLY:-$def}"
-    fi
-    if [ -z "$SS_PASSWORD" ]; then
-        read -r -p "Generate random password? [Y/n]: " REPLY
+        is_port "$SS_PORT" && break
+        log_warn "Please enter a number between 1 and 65535"
+    done
+
+    # --- password ---
+    while :; do
+        read -r -p "Generate a random password? [Y/n]: " REPLY
         REPLY="${REPLY:-Y}"
         if [[ "$REPLY" =~ ^[Yy]$ ]]; then
             SS_PASSWORD=$(gen_password)
             log_info "Generated password: $SS_PASSWORD"
-        else
+            break
+        fi
+        if [[ "$REPLY" =~ ^[Nn]$ ]]; then
             while :; do
                 read -rs -p "Enter password (>= 6 chars): " REPLY; echo
-                [ "${#REPLY}" -ge 6 ] || { log_warn "too short"; continue; }
-                SS_PASSWORD="$REPLY"; break
+                [ "${#REPLY}" -ge 6 ] && { SS_PASSWORD="$REPLY"; break; }
+                log_warn "Password too short (need >= 6 chars)"
             done
+            break
         fi
+        log_warn "Please answer Y or n"
+    done
+
+    # --- cipher ---
+    if [ "$SS_TYPE" = "rust" ]; then
+        # rust supports AEAD-2022 ciphers; show the union.
+        local ciphers=(
+            "chacha20-ietf-poly1305"   # 1
+            "aes-256-gcm"              # 2
+            "aes-128-gcm"              # 3
+            "xchacha20-ietf-poly1305"  # 4
+            "2022-blake3-aes-256-gcm"  # 5
+            "2022-blake3-aes-128-gcm"  # 6
+            "2022-blake3-chacha20-poly1305"  # 7
+        )
+    else
+        local ciphers=(
+            "chacha20-ietf-poly1305"   # 1
+            "aes-256-gcm"              # 2
+            "aes-128-gcm"              # 3
+            "xchacha20-ietf-poly1305"  # 4
+            "chacha20-ietf"            # 5
+            "aes-256-ctr"              # 6
+        )
     fi
-    if [ "$SS_PLUGIN" = "none" ] && [ "$SS_TYPE" = "rust" ]; then
-        echo "Plugin:"
-        echo "  1) none  2) v2ray-plugin  3) xray-plugin"
+    echo "Stream cipher (current: ${SS_CIPHER:-${ciphers[0]}}):"
+    local i
+    for ((i=0; i<${#ciphers[@]}; i++)); do
+        echo "  $((i+1))) ${ciphers[i]}"
+    done
+    while :; do
         read -r -p "Choice [1]: " REPLY
-        case "${REPLY:-1}" in
-            2) SS_PLUGIN='v2ray' ;;
-            3) SS_PLUGIN='xray' ;;
-            *) SS_PLUGIN='none' ;;
-        esac
+        REPLY="${REPLY:-1}"
+        if [[ "$REPLY" =~ ^[0-9]+$ ]] \
+           && [ "$REPLY" -ge 1 ] && [ "$REPLY" -le "${#ciphers[@]}" ]; then
+            SS_CIPHER="${ciphers[REPLY-1]}"
+            break
+        fi
+        # Allow the user to type a cipher name directly.
+        if is_cipher "$REPLY"; then
+            SS_CIPHER="$REPLY"
+            break
+        fi
+        log_warn "Please enter a number 1..${#ciphers[@]} or a cipher name"
+    done
+
+    # --- plugin (rust only) ---
+    if [ "$SS_TYPE" = "rust" ]; then
+        echo "SIP003 plugin (current: ${SS_PLUGIN}):"
+        echo "  1) none  2) v2ray-plugin  3) xray-plugin"
+        while :; do
+            read -r -p "Choice [1]: " REPLY
+            case "${REPLY:-1}" in
+                1|'') SS_PLUGIN='none'; break ;;
+                2)    SS_PLUGIN='v2ray'; break ;;
+                3)    SS_PLUGIN='xray'; break ;;
+                *)    log_warn "Please enter 1, 2 or 3" ;;
+            esac
+        done
     fi
-    if [ "$SS_PLUGIN" != "none" ]; then
+    if [ "$SS_PLUGIN" != "none" ] && [ -z "${SS_PLUGIN_OPTS_CLI:-}" ]; then
         read -r -p "Plugin options (default: server): " REPLY
         SS_PLUGIN_OPTS="${REPLY:-server}"
     fi
+
+    # --- summary ---
+    cat <<EOF
+
+Configuration:
+  Type        : $SS_TYPE
+  Port        : $SS_PORT
+  Cipher      : $SS_CIPHER
+  Password    : $SS_PASSWORD
+  Plugin      : $SS_PLUGIN${SS_PLUGIN_OPTS:+ ($SS_PLUGIN_OPTS)}
+
+Press Enter to continue, or Ctrl+C to abort.
+EOF
+    read -r _
 }
 
 #==============================================================================
@@ -694,12 +780,10 @@ do_install() {
     log_info "$SCRIPT_NAME $SCRIPT_VERSION starting on $(os_pretty)"
     log_info "Init system: $(has_systemd && echo systemd || echo 'sysv/none')"
 
-    # Resolve every variable
-    SS_PASSWORD="${SS_PASSWORD:-$(gen_password)}"
-    SS_PORT="${SS_PORT:-$(gen_port)}"
-    is_type "$SS_TYPE"   || die "Unsupported --type: $SS_TYPE (only: ${SUPPORTED_TYPES[*]})"
-    is_port "$SS_PORT"   || die "Invalid port: $SS_PORT"
-    is_cipher "$SS_CIPHER" || die "Invalid cipher: $SS_CIPHER"
+    # CLI pre-validation
+    is_type "$SS_TYPE"     || die "Unsupported --type: $SS_TYPE (only: ${SUPPORTED_TYPES[*]})"
+    is_port "$SS_PORT"     || [ -z "$SS_PORT" ] || die "Invalid --port: $SS_PORT"
+    is_cipher "$SS_CIPHER" || die "Invalid --cipher: $SS_CIPHER"
 
     # rust is the only one that supports SIP003 plugin out of the box
     if [ "$SS_TYPE" = "libev" ] && [ "$SS_PLUGIN" != "none" ]; then
@@ -707,14 +791,13 @@ do_install() {
         SS_PLUGIN='none'
     fi
 
-    # In auto mode or non-TTY (e.g. curl | bash), skip all interactive
-    # prompts. The defaults set above (random port, random password,
-    # chacha20-ietf-poly1305 cipher, no plugin) are used as-is.
-    if [ "$AUTO_YES" = "1" ] || [ ! -t 0 ]; then
-        log_info "Auto mode: using defaults (port=${SS_PORT}, cipher=${SS_CIPHER}, random password, no plugin)"
-    else
-        interactive_ask
-    fi
+    # Always go through the interactive prompt. The user is asked about
+    # every value, even ones passed on the CLI — they can press Enter
+    # to accept the pre-set value or type a new one. When invoked via
+    # `curl | bash` (no TTY), interactive_ask will die with a clear
+    # error message pointing the user at the CLI flags.
+    interactive_ask
+
     [ "${#SS_PASSWORD}" -ge 6 ] || die "Password must be at least 6 characters"
 
     disable_selinux

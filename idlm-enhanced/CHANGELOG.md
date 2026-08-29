@@ -39,28 +39,33 @@ Current version: **2.0.0-enhanced**
 
 ## 1. Detailed patches
 
-### 1.1 Robust option parsing
+### 1.1 Robust option parsing (interactively-asked with pre-set values)
 
 Upstream only accepted `install` / `uninstall` as a single positional
-argument and read every other setting interactively. Enhanced adds:
+argument and read every other setting interactively. Enhanced keeps
+the interactive behavior but lets the user pre-set values on the
+command line to skip the corresponding prompt:
 
 ```text
---type      libev | rust
---port      1-65535
---password  text      (random if not given via --password)
---cipher    chacha20-ietf-poly1305 | aes-256-gcm | ...
---plugin    none | v2ray | xray
---auto, -y  non-interactive
+--type      libev | rust                    (asked if missing)
+--port      1-65535                          (asked if missing)
+--password  text                             (asked if missing; default: random)
+--cipher    chacha20-ietf-poly1305 | aes-256-gcm | ...   (asked if missing)
+--plugin    none | v2ray | xray              (asked if missing; rust only)
 ```
 
-This means the script can be run from cloud-init, Terraform, or a
-Dockerfile `RUN` line without a TTY:
+When every value is pre-set, the script can be run from cloud-init,
+Terraform, or a Dockerfile `RUN` line without a TTY:
 
 ```bash
 ./shadowsocks-all-enhanced.sh install \
     --type rust --port 443 --password 'MY_SECRET' \
-    --cipher chacha20-ietf-poly1305 --auto
+    --cipher chacha20-ietf-poly1305
 ```
+
+If you run via `curl | bash` (no TTY) without pre-setting all values,
+the script refuses to start with a clear error message instead of
+silently picking random defaults.
 
 ### 1.2 Random password by default
 

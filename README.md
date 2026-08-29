@@ -15,11 +15,13 @@
 curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash
 ```
 
-或者非交互式（装 libev，端口 443，密码随机）：
+或者非交互式（**自动端口 + 自动密码 + 默认 chacha20-ietf-poly1305**）：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --type libev --port 443 --auto
 ```
+
+`--auto` 模式下脚本**完全自动**：随机密码、随机端口（如不指定）、默认加密方式、不问任何问题。
 
 ### 2. Fmmx 增强版（4-in-1，Python/R/Go/libev）
 

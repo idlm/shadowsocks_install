@@ -11,7 +11,11 @@
 # 交互式安装
 curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash
 
-# 非交互式：装 libev，端口 443，密码随机
+# 非交互式：装 libev，自动随机端口 + 随机密码
+curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
+  | sudo bash -s -- --type libev --auto
+
+# 非交互式：装 libev，指定端口 443
 curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
   | sudo bash -s -- --type libev --port 443 --auto
 
@@ -26,6 +30,44 @@ curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-
 git clone https://github.com/idlm/shadowsocks_install.git
 cd shadowsocks_install/idlm-enhanced
 sudo bash shadowsocks-all-enhanced.sh install --type libev --port 443 --auto
+```
+
+## 一行安装：默认全自动
+
+`--auto` 模式**不交互、不问问题**：
+
+| 选项 | `--auto` 默认 |
+|------|---------------|
+| `--type` | `libev` |
+| `--port` | 随机 1024-65535 |
+| `--password` | 随机 24 字符 |
+| `--cipher` | `chacha20-ietf-poly1305` |
+| `--plugin` | 无 |
+
+**最简单的一行**（`curl` + 随机一切）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --auto
+```
+
+**指定端口**（避免防火墙要重新开）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --port 443 --auto
+```
+
+**指定密码**（自用客户端记得住）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --port 443 --password 'MyP@ss' --auto
+```
+
+**完全自定义**：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
+  | sudo bash -s -- --type libev --port 443 --password 'MyP@ss' \
+                    --cipher chacha20-ietf-poly1305 --auto
 ```
 
 ## 用法

@@ -213,8 +213,14 @@ WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
 
 #==============================================================================
-# 1. Interactive prompts (TTY-only)
+# 1. Interactive prompts (TTY-only, only when --auto is NOT set)
 #==============================================================================
+# We DO NOT ask for anything in --auto mode. The defaults set in do_install
+# (random password, random port, chacha20-ietf-poly1305 cipher, no plugin)
+# are good enough for a one-click install.
+#
+# In TTY + non-auto mode we offer to customise. In pipe (curl|bash) mode
+# we MUST exit silently so the script never blocks waiting for input.
 interactive_ask() {
     [ "$AUTO_YES" = "1" ] && return 0
     [ -t 0 ] || return 0
@@ -701,7 +707,14 @@ do_install() {
         SS_PLUGIN='none'
     fi
 
-    interactive_ask
+    # In auto mode or non-TTY (e.g. curl | bash), skip all interactive
+    # prompts. The defaults set above (random port, random password,
+    # chacha20-ietf-poly1305 cipher, no plugin) are used as-is.
+    if [ "$AUTO_YES" = "1" ] || [ ! -t 0 ]; then
+        log_info "Auto mode: using defaults (port=${SS_PORT}, cipher=${SS_CIPHER}, random password, no plugin)"
+    else
+        interactive_ask
+    fi
     [ "${#SS_PASSWORD}" -ge 6 ] || die "Password must be at least 6 characters"
 
     disable_selinux

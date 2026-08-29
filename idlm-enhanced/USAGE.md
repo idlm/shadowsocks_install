@@ -16,12 +16,14 @@
 
 ---
 
-## 一、一键安装
+## 一、安装
 
 ### 1. 默认（交互式）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash
+wget --no-check-certificate -O shadowsocks-all.sh https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/shadowsocks-all-enhanced.sh
+chmod +x shadowsocks-all.sh
+./shadowsocks-all.sh 2>&1 | tee shadowsocks-all.log
 ```
 
 打开后按提示选择：type / port / password / cipher / plugin。
@@ -29,25 +31,28 @@ curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-
 ### 2. 加 `--auto`（完全自动）
 
 ```bash
-# 随机端口 + 随机密码 + 默认 aes-256-gcm
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --auto
+wget --no-check-certificate -O shadowsocks-all.sh https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/shadowsocks-all-enhanced.sh
+chmod +x shadowsocks-all.sh
+./shadowsocks-all.sh --auto 2>&1 | tee shadowsocks-all.log
 ```
 
 ### 3. 预填部分参数（最常见）
 
 ```bash
-# 指定端口 443，其余仍然交互询问
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --port 443
+wget --no-check-certificate -O shadowsocks-all.sh https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/shadowsocks-all-enhanced.sh
+chmod +x shadowsocks-all.sh
+./shadowsocks-all.sh --port 443
 ```
 
 ### 4. 完全预填（CI / cloud-init）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
-  | sudo bash -s -- --type libev --port 443 --password 'MyP@ss' --cipher aes-256-gcm
+wget --no-check-certificate -O shadowsocks-all.sh https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/shadowsocks-all-enhanced.sh
+chmod +x shadowsocks-all.sh
+./shadowsocks-all.sh --type libev --port 443 --password 'MyP@ss' --cipher aes-256-gcm
 ```
 
-### 5. 不用 curl，本地 clone 后跑
+### 5. 不用 wget，git clone 后跑
 
 ```bash
 git clone https://github.com/idlm/shadowsocks_install.git
@@ -145,13 +150,11 @@ apt 优先 → GitHub release 兜底 → 源码编译（最后才用）。
 ## 六、一键卸载
 
 ```bash
-# 卸载 libev（默认）
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
-  | sudo bash -s -- uninstall
-
-# 卸载 rust
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
-  | sudo bash -s -- uninstall --type rust
+wget --no-check-certificate -O shadowsocks-all.sh https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/shadowsocks-all-enhanced.sh
+chmod +x shadowsocks-all.sh
+./shadowsocks-all.sh uninstall
+# 卸载 rust：
+./shadowsocks-all.sh uninstall --type rust
 ```
 
 或者本地：
@@ -292,37 +295,37 @@ sudo ./shadowsocks-all-enhanced.sh
 ## 附录：完整命令参考
 
 ```bash
+# === 下载主脚本（所有模式都从这步开始） ===
+wget --no-check-certificate -O shadowsocks-all.sh https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/shadowsocks-all-enhanced.sh
+chmod +x shadowsocks-all.sh
+
 # === 安装 ===
 
-# 交互式
-sudo bash shadowsocks-all-enhanced.sh
+# 交互式（TTY 终端）
+./shadowsocks-all.sh
 
 # 自动模式
-sudo bash shadowsocks-all-enhanced.sh --auto
+./shadowsocks-all.sh --auto
 
 # 装 libev，指定端口 + 随机密码
-sudo bash shadowsocks-all-enhanced.sh --type libev --port 443 --auto
+./shadowsocks-all.sh --type libev --port 443 --auto
 
 # 装 rust + v2ray 插件
-sudo bash shadowsocks-all-enhanced.sh --type rust --plugin v2ray --auto
+./shadowsocks-all.sh --type rust --plugin v2ray --auto
 
 # 装 rust + xray 插件
-sudo bash shadowsocks-all-enhanced.sh --type rust --plugin xray --auto
+./shadowsocks-all.sh --type rust --plugin xray --auto
 
 # 装 libev，指定端口 + 密码 + 加密
-sudo bash shadowsocks-all-enhanced.sh --port 443 --password 'MyP@ss' --cipher aes-256-gcm
-
-# 通过 curl 一行
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash
-curl -fsSL ... | sudo bash -s -- --auto
-curl -fsSL ... | sudo bash -s -- --type libev --port 443 --auto
+./shadowsocks-all.sh --port 443 --password 'MyP@ss' --cipher aes-256-gcm
 
 # === 卸载 ===
 
-sudo bash shadowsocks-all-enhanced.sh uninstall                    # libev (default)
-sudo bash shadowsocks-all-enhanced.sh uninstall --type rust         # rust
-curl -fsSL ... | sudo bash -s -- uninstall
+./shadowsocks-all.sh uninstall                    # libev (default)
+./shadowsocks-all.sh uninstall --type rust         # rust
 ```
+
+> 这些命令都需要 `root` 权限（`sudo ./shadowsocks-all.sh` 或先 `sudo -i`）。
 
 ---
 

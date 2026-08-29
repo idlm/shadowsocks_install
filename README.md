@@ -7,39 +7,20 @@
 
 ## 🚀 一键安装命令
 
-按你的需求**单独复制**其中一条即可：
-
 ### 1. idlm 增强版（2-in-1，libev + rust） — 推荐
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash
+wget --no-check-certificate -O shadowsocks-all.sh https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/shadowsocks-all-enhanced.sh
+chmod +x shadowsocks-all.sh
+./shadowsocks-all.sh 2>&1 | tee shadowsocks-all.log
 ```
-
-或者预填部分参数（**未指定的项会交互询问**）：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --type libev --port 443
-```
-
-跳过所有交互（**加 `--auto` 即可**，推荐）：
-
-```bash
-# 随机端口 + 随机密码 + 默认 aes-256-gcm
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --auto
-
-# 指定端口 + 随机密码
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --port 443 --auto
-
-# 完全自定义
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --type libev --port 443 --password 'MyP@ss' --cipher chacha20-ietf-poly1305 --auto
-```
-
-`curl | bash`（无 TTY）场景下脚本会自动启用 auto 模式，但你仍然可以预填任意参数。
 
 ### 2. Fmmx 增强版（4-in-1，Python/R/Go/libev）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/fmmx-enhanced/install.sh | sudo bash
+wget --no-check-certificate -O shadowsocks-all.sh https://raw.githubusercontent.com/idlm/shadowsocks_install/main/fmmx-enhanced/shadowsocks-libev-enhance.sh
+chmod +x shadowsocks-all.sh
+./shadowsocks-all.sh 2>&1 | tee shadowsocks-all.log
 ```
 
 ### 3. teddysun 原版（仅参考）

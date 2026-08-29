@@ -5,43 +5,23 @@
 > 保留 **Shadowsocks-libev** 和 **Shadowsocks-rust**，
 > 并对 Debian 10/11/12/13、Ubuntu 20.04/22.04/24.04 全系做了兼容性加固。
 
-## 一行安装（**默认交互**：会问端口、密码、加密方式）
+## 安装（**默认交互**：会问端口、密码、加密方式）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash
+wget --no-check-certificate -O shadowsocks-all.sh https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/shadowsocks-all-enhanced.sh
+chmod +x shadowsocks-all.sh
+./shadowsocks-all.sh 2>&1 | tee shadowsocks-all.log
 ```
 
-预填部分参数（**未指定的项会交互询问**）：
+## 卸载
 
 ```bash
-# 只指定 type，端口/密码/加密方式会被问到
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --type libev
-
-# 指定 type + 端口
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --type libev --port 443
-
-# 装 rust + v2ray 插件
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --type rust --plugin v2ray
+wget --no-check-certificate -O shadowsocks-all.sh https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/shadowsocks-all-enhanced.sh
+chmod +x shadowsocks-all.sh
+./shadowsocks-all.sh uninstall
 ```
 
-跳过所有交互（**加 `--auto` 在命令末尾即可**）：
-
-```bash
-# 随机端口 + 随机密码 + 默认 aes-256-gcm
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --auto
-
-# 指定端口 443，其余自动
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --port 443 --auto
-
-# 完全自定义
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
-  | sudo bash -s -- --type libev --port 443 --password 'MyP@ss' \
-                    --cipher chacha20-ietf-poly1305 --auto
-```
-
-`curl | bash`（无 TTY）场景下脚本会自动启用 auto 模式，但你仍然可以预填任意参数。
-
-或者直接 clone 后运行：
+## 可选：克隆后跑
 
 ```bash
 git clone https://github.com/idlm/shadowsocks_install.git

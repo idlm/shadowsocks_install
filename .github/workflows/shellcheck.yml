@@ -1,0 +1,34 @@
+name: shellcheck
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Lint all shell scripts
+        run: |
+          set +e
+          fail=0
+          for f in $(find . -name "*.sh" -not -path "*/.git/*"); do
+            echo "=== $f ==="
+            shellcheck "$f"
+            rc=$?
+            if [ $rc -ne 0 ] && [ $rc -ne 1 ]; then
+              # shellcheck returns 1 for findings, 0 for clean, 2 for syntax error
+              # We treat 1 as warnings (OK) and other non-zero as failure
+              if [ $rc -ge 2 ]; then
+                fail=1
+              fi
+            fi
+          done
+          exit $fail

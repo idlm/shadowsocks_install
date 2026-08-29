@@ -5,33 +5,32 @@
 >
 > 已在 **Debian 10/11/12/13、Ubuntu 20.04/22.04/24.04、CentOS/RHEL 8+** 上验证。
 
-## 🚀 一行安装
+## 🚀 一键安装命令
 
-### 推荐：idlm 增强版（2-in-1，libev + rust）
+按你的需求**单独复制**其中一条即可：
+
+### 1. idlm 增强版（2-in-1，libev + rust） — 推荐
 
 ```bash
-# 交互式
 curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash
-
-# 非交互：装 libev + 443 端口
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
-  | sudo bash -s -- --type libev --port 443 --auto
-
-# 装 rust + v2ray 插件
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh \
-  | sudo bash -s -- --type rust --plugin v2ray --auto
 ```
 
-### 备选：Fmmx 增强版（4-in-1，Python/R/Go/libev）
+或者非交互式（装 libev，端口 443，密码随机）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/idlm-enhanced/install.sh | sudo bash -s -- --type libev --port 443 --auto
+```
+
+### 2. Fmmx 增强版（4-in-1，Python/R/Go/libev）
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/fmmx-enhanced/install.sh | sudo bash
 ```
 
-### 备选：teddysun 原版（仅参考）
+### 3. teddysun 原版（仅参考）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/teddysun-original/shadowsocks-all.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/idlm/shadowsocks_install/main/teddysun-original/install.sh | sudo bash
 ```
 
 ## 选哪个？
